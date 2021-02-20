@@ -1,13 +1,13 @@
-xsd2pgsql
+xsd2dbschema
 =========
 
-Create a DB structure from an XML Schema.
+Create a database schema from an XML Schema.
 
 Usage
 =====
 Ouput of ``--help``::
 
-    usage: xsd2pgsql.py [-h] [-f] [-a]
+    usage: xsd2dbschema.py [-h] [-f] [-a]
                         FILE
 
     Create a database based on an XSD schema. 
