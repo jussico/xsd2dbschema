@@ -1,35 +1,22 @@
 #! /usr/bin/python
-""" xsd2pgsql.py
+""" xsd2dbschema.py
 ========================================
 
 Create a database based on an XSD schema. 
 
 Usage
 ========================================
-    <file>  XSD file to base the Postgres Schema on
+    <file>  XSD file to base the database schema on
 
     -f  --fail  Fail on finding a bad XS type
     -a  --as-is     Don't normalize element names.
 
-    -d  --database  DB name
-    -u  --user  DB Username
-    -p  --password  DB Password
-    -h  --host  DB host
-    -P  --port  DB port
 """
-
-""" You can set default DB connection settings here if you'd like
-"""
-DB = {
-    'user':     None,
-    'pass':     None,
-    'port':     5432,
-    'host':     'localhost',
-}
 
 """ Some configuration items """
 MAX_RECURSE_LEVEL = 10
 
+# TODO: add MariaDB also
 """ XSD to Postgres data type translation dictionary. 
 """
 class SDict(dict):
@@ -170,19 +157,19 @@ if __name__ == '__main__':
 
     """ Imports
     """
-    import argparse, psycopg2
+    import argparse
     import pyxb.utils.domutils as domutils
     from lxml import etree
 
     """ Handle options
     """
-    parser = argparse.ArgumentParser(description='Create a database based on an XSD schema.  If no database name is specified, SQL is output to stdout.')
+    parser = argparse.ArgumentParser(description='Create a database based on an XSD schema.  SQL is output to stdout.')
     parser.add_argument(
         'xsd', 
         metavar='FILE', 
-        type=file, 
+        type=open, 
         nargs='+',
-        help='XSD file to base the Postgres Schema on'
+        help='XSD file to base the database schema on'
     )
     parser.add_argument(
         '-f', '--fail', 
@@ -198,82 +185,27 @@ if __name__ == '__main__':
         default = False,
         help = "Don't normalize element names"
     )
-    parser.add_argument(
-        '-d', '--database',
-        metavar='NAME', 
-        dest='db_name',
-        type=str, 
-        nargs='?',
-        help='DB Name'
-    )
-    parser.add_argument(
-        '-u', '--user',
-        metavar='USERNAME', 
-        dest='db_username',
-        type=str, 
-        nargs='?',
-        help='DB Username'
-    )
-    parser.add_argument(
-        '-p', '--password',
-        metavar = 'PASSWORD', 
-        dest='db_password',
-        type = str, 
-        nargs = '?',
-        help = 'DB Password'
-    )
-    parser.add_argument(
-        '-n', '--host',
-        metavar = 'HOSTNAME', 
-        dest='db_host',
-        type = str, 
-        nargs = '?',
-        default = 'localhost',
-        help = 'DB Host'
-    )
-    parser.add_argument(
-        '-P', '--port',
-        metavar = 'PORT', 
-        dest='db_port',
-        type = int, 
-        nargs = '?',
-        default = 5432,
-        help = 'DB Port (Default: 5432)'
-    )
     args = parser.parse_args()
 
-    """ MEAT
+    """ CORE
     """
-    if not args.xsd:
-        sys.exit('XSD file not specified.')
-    else:
-        for f in args.xsd:
-            #xsdFile = open(f, 'r')
+    for f in args.xsd: # parse all given files
+        """ Parse the XSD file
+        """
+        xsd = etree.parse(f)
         
-            """ Parse the XSD file
-            """
-            xsd = etree.parse(f)
-            
-            # glean out defined types
-            buildTypes(XMLS, xsd)
-            
-            # parse structure
-            if args.as_is:
-                norm = False
-            else:
-                norm = True
-            result = look4element(XMLS, xsd, pg_normalize(f.name.split('.')[0]), fail=args.failOnBadType, normalize=norm)
-        if result[1] and not args.db_name:
-            print result[1].replace('\n\n', '')
-        elif result[1]:
-            dsn = "dbname=%s host=%s port=%s" % (args.db_name, args.db_host, args.db_port)
-            if args.db_username: dsn += "user=%s" % args.db_username
-            if args.db_username: dsn += "user=%s" % args.db_password
-            conn = psycopg2.connect(dsn)
-            cur = conn.cursor()
-            cur.execute(result[1])
-            conn.commit()
-            cur.close()
-            conn.close()
+        # glean out defined types
+        buildTypes(XMLS, xsd)
+        
+        # parse structure
+        if args.as_is:
+            norm = False
         else:
-            raise Exception("This shouldn't happen.")
+            norm = True
+        
+        result = look4element(XMLS, xsd, pg_normalize(f.name.split('.')[0]), fail=args.failOnBadType, normalize=norm)
+
+        if result[1]:
+            print(result[1].replace('\n\n', ''))
+        else:
+            raise Exception("This shouldn't happen and will never happen.")
